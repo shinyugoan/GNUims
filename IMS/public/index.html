@@ -196,17 +196,66 @@
 
         function fetchRentalStatus() {
             const db = firebase.firestore();
-            db.collection('rentals').where('userId', '==', currentUserId).get().then((snapshot) => {
+            db.collection('rentals').where('userId', '==', currentUserId).onSnapshot((snapshot) => {
                 const rentalStatusContainer = document.querySelector('#rental-status ul');
                 rentalStatusContainer.innerHTML = '';
 
                 snapshot.forEach((doc) => {
                     const rentalData = doc.data();
-                    const rentalStatusHtml = `<li class="list-group-item">제품: ${rentalData.itemName}, 상태: ${rentalData.status}</li>`;
+                    const timestamp = rentalData.timestamp ? rentalData.timestamp.toDate() : null;
+                    const formattedDate = timestamp ? `${timestamp.getFullYear()}.${(timestamp.getMonth() + 1).toString().padStart(2, '0')}.${timestamp.getDate().toString().padStart(2, '0')} ${timestamp.getHours()}시 ${timestamp.getMinutes().toString().padStart(2, '0')}분` : '알 수 없음';
+
+                    // 상태가 '승인'일 경우에 따른 처리 추가
+                    const statusText = rentalData.status === '승인' ? '승인됨' : rentalData.status;
+
+                    // 취소 버튼 추가
+                    const cancelButtonHtml = `<button class="btn btn-danger btn-sm" onclick="cancelRental('${doc.id}', '${rentalData.productId}')">대여 취소</button>`;
+
+                    const rentalStatusHtml = `
+                        <li class="list-group-item">
+                            제품: ${rentalData.itemName}, 상태: ${statusText}, 신청일시: ${formattedDate} ${cancelButtonHtml}
+                        </li>
+                    `;
                     rentalStatusContainer.innerHTML += rentalStatusHtml;
                 });
-            }).catch((error) => {
+            }, (error) => {
                 console.error("대여 신청 현황 가져오기 오류:", error);
+            });
+        }
+
+        function cancelRental(rentalId, productId) {
+            const db = firebase.firestore();
+
+            // 대여 요청 삭제
+            db.collection('rentals').doc(rentalId).delete()
+                .then(() => {
+                    alert('대여가 취소되었습니다.');
+                    // 해당 제품의 재고 업데이트
+                    updateProductStockOnCancel(productId);
+                })
+                .catch((error) => {
+                    console.error('대여 취소 오류:', error);
+                });
+        }
+
+        function updateProductStockOnCancel(productId) {
+            const db = firebase.firestore();
+            // 현재 재고 수량 가져오기
+            db.collection('product').doc(productId).get().then((doc) => {
+                if (doc.exists) {
+                    const productData = doc.data();
+                    const newStock = productData.stock + 1; // 재고 1 증가
+
+                    db.collection('product').doc(productId).update({
+                        stock: newStock
+                    }).then(() => {
+                        fetchProducts(); // 제품 목록 새로 고침
+                    }).catch((error) => {
+                        console.error("재고 업데이트 오류:", error);
+                    });
+                }
+            }).catch((error) => {
+                console.error("제품 정보 가져오기 오류:", error);
             });
         }
 
@@ -236,6 +285,11 @@
                 console.error("재고 업데이트 오류:", error);
             });
         }
+
+        // 페이지가 로드될 때 대여 신청 현황 가져오기
+        window.onload = function() {
+            fetchRentalStatus();
+        };
     </script>
 </body>
 </html>
