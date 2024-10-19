@@ -1,0 +1,35 @@
+.product {
+    display: flex;
+    padding: 15px; /* 패딩을 약간 증가시켜 더 여유롭게 만듭니다. */
+    border: 1px solid #ccc; /* 경계선을 추가하여 각 제품의 영역을 분리합니다. */
+    border-radius: 10px; /* 경계선의 모서리를 둥글게 만듭니다. */
+    margin-bottom: 15px; /* 각 제품 사이의 간격을 추가합니다. */
+    background-color: #f9f9f9; /* 부드러운 배경색을 추가합니다. */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* 약한 그림자를 추가하여 입체감을 줍니다. */
+}
+
+.thumbnail {
+    max-width: 200px;
+    width: 100%;
+    border-radius: 10px; /* 이미지의 모서리를 둥글게 만듭니다. */
+    background-size: cover;
+    background-position: center;
+}
+
+.product .price {
+    font-size: 18px; /* 글자 크기를 약간 키워 더 눈에 띄게 만듭니다. */
+    font-weight: 700; /* 더 두꺼운 글씨로 강조합니다. */
+    color: #333; /* 글자 색상을 어둡게 설정하여 가독성을 높입니다. */
+}
+
+.product .title {
+    font-size: 18px; /* 글자 크기를 약간 키워 강조합니다. */
+    font-weight: 700; /* 더 두꺼운 글씨로 강조합니다. */
+    margin-top: 10px; /* 제목과 가격 사이에 간격을 추가합니다. */
+}
+
+.product .date {
+    color: grey;
+    font-size: 14px; /* 글자 크기를 약간 키워 가독성을 높입니다. */
+    margin-top: 5px; /* 날짜와 다른 요소 사이에 간격을 추가합니다. */
+}

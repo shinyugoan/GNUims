@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNU-ims 관리자 페이지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .image-thumbnail {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .section {
+            display: none;
+        }
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            font-size: 1.2rem;
+            color: red;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>관리자 페이지</h2>
+        
+        <!-- 로그인 섹션 -->
+        <div class="login-container" id="login-section">
+            <h3>관리자 로그인</h3>
+            <form id="login-form">
+                <div class="mb-3">
+                    <label for="email" class="form-label">이메일</label>
+                    <input type="email" class="form-control" id="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">비밀번호</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">로그인</button>
+            </form>
+        </div>
+
+        <!-- 버튼 -->
+        <div class="mb-3" id="admin-buttons" style="display: none;">
+            <button class="btn btn-primary" id="upload-btn">상품 정보 업로드</button>
+            <button class="btn btn-secondary" id="manage-btn">대여 요청 관리</button>
+        </div>
+
+        <!-- 상품 업로드 섹션 -->
+        <div id="upload-section" class="section">
+            <div class="row mb-5">
+                <div class="col-md-6">
+                    <h3>상품 정보 업로드</h3>
+                    <form id="upload-form">
+                        <div class="mb-3">
+                            <label for="itemName" class="form-label">상품 이름</label>
+                            <input type="text" class="form-control" id="itemName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="stock" class="form-label">재고 수량</label>
+                            <input type="number" class="form-control" id="stock" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="imageFile" class="form-label">이미지 파일 업로드</label>
+                            <input type="file" class="form-control" id="imageFile" accept="image/*" required>
+                        </div>
+                        <img id="preview" class="image-thumbnail" style="display: none;" alt="이미지 미리보기">
+                        <button type="submit" class="btn btn-primary">업로드</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 대여 요청 관리 섹션 -->
+        <div id="manage-section" class="section">
+            <div class="row mb-5">
+                <div class="col-md-12">
+                    <h3>대여 요청 관리</h3>
+                    <div class="row" id="rental-requests"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase 및 스크립트 -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+    <script>
+        // Firebase 초기화 코드
+        var firebaseConfig = {
+            apiKey: "AIzaSyBzL5s-GOya6WP4ZAKcDHpAhbxUt-Qz-EE",
+            authDomain: "gnuims-7a905.firebaseapp.com",
+            projectId: "gnuims-7a905",
+            storageBucket: "gnuims-7a905.appspot.com",
+            messagingSenderId: "497201046914",
+            appId: "1:497201046914:web:9265502e681336d75a5b9b",
+            measurementId: "G-GNVB83FN8N"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const auth = firebase.auth();
+
+        // 로그인 처리
+        document.getElementById('login-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+
+                    // Firestore에서 해당 사용자의 isAdmin 필드를 확인
+                    db.collection('users').doc(user.uid).get()
+                        .then(docSnapshot => {
+                            if (docSnapshot.exists && docSnapshot.data().isAdmin) {
+                                // isAdmin이 true일 때 관리자 페이지로 전환
+                                document.getElementById('login-section').style.display = 'none';
+                                document.getElementById('admin-buttons').style.display = 'block';
+                                fetchRentalRequests(); // 대여 요청 목록 불러오기
+                            } else {
+                                // isAdmin이 없거나 false일 때 로그아웃 처리
+                                auth.signOut().then(() => {
+                                    alert('관리자 권한이 없습니다.');
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('isAdmin 확인 중 오류 발생: ', error);
+                            alert('로그인 실패: 관리자 권한을 확인할 수 없습니다.');
+                        });
+                })
+                .catch((error) => {
+                    alert('로그인 실패: ' + error.message);
+                });
+        });
+
+        // 대여 요청 목록 가져오기
+        function fetchRentalRequests() {
+            db.collection('rentalRequests').get().then((snapshot) => {
+                const requestsContainer = document.getElementById('rental-requests');
+                requestsContainer.innerHTML = '';
+
+                if (snapshot.empty) {
+                    requestsContainer.innerHTML = '<p>대여 요청이 없습니다.</p>';
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const requestData = doc.data();
+                    const requestHtml = `
+                        <div class="col-md-4 mb-3">
+                            <div class="card position-relative">
+                                <button class="delete-btn" onclick="deleteRequest('${doc.id}')">&times;</button>
+                                <div class="card-body">
+                                    <h5 class="card-title">아이템 ID: ${requestData.itemId}</h5>
+                                    <p class="card-text">학생 ID: ${requestData.studentId}</p>
+                                    <p class="card-text">신청일시: ${new Date(requestData.신청일시).toLocaleString()}</p>
+                                    <p class="card-text">상태: ${requestData.상태}</p>
+                                    <button class="btn btn-success" onclick="updateRequest('${doc.id}', '승인')">승인</button>
+                                    <button class="btn btn-danger" onclick="updateRequest('${doc.id}', '거부')">거부</button>
+                                    <button class="btn btn-warning" onclick="updateRequest('${doc.id}', '대기')">대기</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    requestsContainer.innerHTML += requestHtml;
+                });
+            }).catch((error) => {
+                console.error("대여 요청 목록 가져오기 오류:", error);
+                alert('대여 요청 목록을 불러오는 데 실패했습니다.');
+            });
+        }
+
+        // 대여 요청 상태 업데이트
+        function updateRequest(requestId, status) {
+            db.collection('rentalRequests').doc(requestId).update({
+                상태: status
+            }).then(() => {
+                alert(`대여 요청이 ${status}되었습니다.`);
+                fetchRentalRequests(); // 업데이트 후 목록 갱신
+            }).catch((error) => {
+                console.error("상태 업데이트 오류:", error);
+                alert(`대여 요청 상태 업데이트에 실패했습니다: ${error.message}`);
+            });
+        }
+
+        // 대여 요청 삭제
+        function deleteRequest(requestId) {
+            db.collection('rentalRequests').doc(requestId).delete()
+                .then(() => {
+                    alert('대여 요청이 삭제되었습니다.');
+                    fetchRentalRequests(); // 삭제 후 목록 갱신
+                })
+                .catch((error) => {
+                    console.error("대여 요청 삭제 오류:", error);
+                    alert('대여 요청 삭제에 실패했습니다.');
+                });
+        }
+
+        // 상품 업로드 처리
+        document.getElementById('upload-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const itemName = document.getElementById('itemName').value;
+            const stock = document.getElementById('stock').value;
+            const imageFile = document.getElementById('imageFile').files[0];
+
+            const storageRef = storage.ref('items/' + imageFile.name);
+            storageRef.put(imageFile).then(() => {
+                storageRef.getDownloadURL().then((url) => {
+                    // Firestore에 상품 정보 저장
+                    db.collection('items').add({
+                        이름: itemName,
+                        재고: stock,
+                        이미지URL: url
+                    }).then(() => {
+                        alert('상품 정보가 업로드되었습니다.');
+                        document.getElementById('upload-form').reset();
+                        document.getElementById('preview').style.display = 'none';
+                    }).catch((error) => {
+                        console.error("상품 정보 업로드 오류:", error);
+                        alert('상품 정보 업로드에 실패했습니다.');
+                    });
+                });
+            }).catch((error) => {
+                console.error("이미지 업로드 오류:", error);
+                alert('이미지 업로드에 실패했습니다.');
+            });
+        });
+
+        // 이미지 미리보기
+        document.getElementById('imageFile').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 버튼 클릭 이벤트
+        document.getElementById('upload-btn').addEventListener('click', function() {
+            document.getElementById('upload-section').style.display = 'block';
+            document.getElementById('manage-section').style.display = 'none';
+        });
+
+        document.getElementById('manage-btn').addEventListener('click', function() {
+            document.getElementById('manage-section').style.display = 'block';
+            document.getElementById('upload-section').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>상품 업로드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .image-thumbnail {
+            width: 100px;  /* 너비 설정 */
+            height: 100px; /* 높이 설정 */
+            object-fit: cover; /* 이미지 비율 유지하면서 자르기 */
+            border: 1px solid #ccc; /* 테두리 추가 */
+            border-radius: 8px; /* 둥글게 처리 */
+            margin-top: 10px; /* 위쪽 여백 추가 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>상품 정보 업로드</h2>
+        <form id="upload-form">
+            <div class="mb-3">
+                <label for="itemName" class="form-label">상품 이름</label>
+                <input type="text" class="form-control" id="itemName" required>
+            </div>
+            <div class="mb-3">
+                <label for="stock" class="form-label">재고 수량</label>
+                <input type="number" class="form-control" id="stock" required>
+            </div>
+            <div class="mb-3">
+                <label for="imageFile" class="form-label">이미지 파일 업로드</label>
+                <input type="file" class="form-control" id="imageFile" accept="image/*" required>
+            </div>
+            <img id="preview" class="image-thumbnail" style="display: none;" alt="이미지 미리보기">
+            <button type="submit" class="btn btn-primary">업로드</button>
+        </form>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-firestore.js"></script>
+    <script>
+        // Firebase 초기화 코드
+        var firebaseConfig = {
+            apiKey: "AIzaSyBzL5s-GOya6WP4ZAKcDHpAhbxUt-Qz-EE",
+            authDomain: "gnuims-7a905.firebaseapp.com",
+            projectId: "gnuims-7a905",
+            storageBucket: "gnuims-7a905.appspot.com",
+            messagingSenderId: "497201046914",
+            appId: "1:497201046914:web:9265502e681336d75a5b9b",
+            measurementId: "G-GNVB83FN8N"
+        };
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // 이미지 미리보기
+        document.getElementById('imageFile').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewImage = document.getElementById('preview');
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block'; // 미리보기 표시
+            };
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 상품 업로드 처리
+        document.getElementById('upload-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const itemName = document.getElementById('itemName').value;
+            const stock = document.getElementById('stock').value;
+            const imageFile = document.getElementById('imageFile').files[0];
+
+            // 상품 이름이 '노트북'이면 특정 파일 이름 사용
+            const imageFileName = (itemName === "노트북") ? "노트북.png" : imageFile.name;
+
+            // Firebase Storage에 이미지 업로드
+            const storageRef = storage.ref('images/' + imageFileName);
+            storageRef.put(imageFile).then((snapshot) => {
+                // 업로드 완료 후 다운로드 URL 가져오기
+                snapshot.ref.getDownloadURL().then((downloadURL) => {
+                    // Firestore에 상품 정보 저장
+                    db.collection('product').add({
+                        itemName: itemName,
+                        stock: Number(stock),
+                        imageUrl: downloadURL // 다운로드 URL을 Firestore에 저장
+                    }).then(() => {
+                        alert('상품이 성공적으로 업로드되었습니다.');
+                        document.getElementById('upload-form').reset();
+                        document.getElementById('preview').style.display = 'none'; // 미리보기 숨김
+                    }).catch((error) => {
+                        console.error("상품 업로드 오류:", error);
+                        alert('상품 업로드에 실패했습니다: ' + error.message);
+                    });
+                });
+            }).catch((error) => {
+                console.error("이미지 업로드 오류:", error);
+                alert('이미지 업로드에 실패했습니다: ' + error.message);
+            });
+        });
+    </script>
+</body>
+</html>
